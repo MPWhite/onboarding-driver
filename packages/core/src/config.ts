@@ -68,7 +68,14 @@ export function findPipScriptTag(): HTMLScriptElement | null {
     const script = scripts[i];
     if (!script) continue;
     const src = script.getAttribute('src') ?? '';
-    if (/pip(-help)?[^/]*\.(iife|js|mjs)/i.test(src) || script.dataset['pipEndpoint']) {
+    // Match any script whose URL mentions "pip" OR that carries our data
+    // attribute. We match loosely on "pip" so scoped package paths like
+    // `https://unpkg.com/@pip-help/core/dist/iife.js` or CDN aliases like
+    // `cdn.example.com/pip-help.js` both work without a strict filename
+    // pattern. The second clause (data-pip-endpoint) is the reliable
+    // signal — the src match is a best-effort fallback for inferring
+    // which tag loaded us when `document.currentScript` is null.
+    if (/pip/i.test(src) || script.dataset['pipEndpoint']) {
       return script;
     }
   }
