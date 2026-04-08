@@ -1,0 +1,40 @@
+{
+  "name": "@pip-help/core",
+  "version": "0.0.0",
+  "description": "Drop-in help widget — a tiny mouse that helps your users.",
+  "license": "MIT",
+  "author": "Matt White",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MPWhite/onboarding-driver.git",
+    "directory": "packages/core"
+  },
+  "type": "module",
+  "sideEffects": ["./dist/iife.js", "./src/auto.ts"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./auto": {
+      "types": "./dist/auto.d.ts",
+      "import": "./dist/auto.js"
+    },
+    "./iife": "./dist/iife.js"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  }
+}

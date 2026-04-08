@@ -1,0 +1,43 @@
+{
+  "name": "@pip-help/server",
+  "version": "0.0.0",
+  "description": "Backend adapter for pip — wraps Vercel AI SDK to answer contextual help questions.",
+  "license": "MIT",
+  "author": "Matt White",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MPWhite/onboarding-driver.git",
+    "directory": "packages/server"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "ai": "^6.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  }
+}
