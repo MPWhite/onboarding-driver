@@ -25,7 +25,10 @@
       "require": "./dist/next.cjs"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -33,11 +36,12 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "ai": "^6.0.0",
-    "zod": "^3.23.0"
+    "ai": "^6.0.152",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "tsup": "^8.3.0",
-    "typescript": "^5.6.0"
+    "@types/node": "^25.5.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }
