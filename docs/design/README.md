@@ -13,4 +13,4 @@ This directory holds the versioned design history of pip. Every significant arch
 
 | Date | Title | Status |
 |---|---|---|
-| 2026-04-07 | [v1 design](2026-04-07-v1-design.md) | Draft |
+| 2026-04-07 | [v1 design](2026-04-07-v1-design.md) | Accepted — implemented |
