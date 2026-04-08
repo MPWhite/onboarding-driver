@@ -368,4 +368,42 @@ export const PIP_STYLES = /* css */ `
 .pip-btn-ghost {
   background: transparent;
 }
+
+/* Pointing overlay */
+.pip-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483001;
+}
+
+.pip-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pip-overlay-ring {
+  animation: pip-pulse-ring 1.4s ease-in-out infinite;
+}
+
+@keyframes pip-pulse-ring {
+  0%, 100% { opacity: 0.9; stroke-width: 3; }
+  50% { opacity: 0.5; stroke-width: 5; }
+}
+
+.pip-overlay-caption {
+  position: absolute;
+  background: var(--pip-bg);
+  color: var(--pip-fg);
+  border: 1px solid var(--pip-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: var(--pip-shadow);
+  font-size: 13.5px;
+  line-height: 1.4;
+  pointer-events: none;
+  max-width: 240px;
+}
 `;

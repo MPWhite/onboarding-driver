@@ -15,6 +15,7 @@ import {
   writeConsent,
   type ConsentDialogHandle,
 } from './widget/consent-dialog.js';
+import { createOverlay, type OverlayHandle } from './overlay/index.js';
 import type { PipConfig, PipInstance } from './types.js';
 
 export type {
@@ -51,6 +52,8 @@ export function mount(input: Partial<PipConfig>): PipInstance {
   const { host, root } = createShadowContainer(mountTarget);
 
   let isPaused = readConsent() === 'denied';
+
+  const overlay: OverlayHandle = createOverlay();
 
   // Build the UI children in order. Order matters for stacking: button
   // and panel are peers; consent dialog sits above both as an overlay.
@@ -112,6 +115,7 @@ export function mount(input: Partial<PipConfig>): PipInstance {
     },
   });
 
+  root.appendChild(overlay.element);
   root.appendChild(button);
   root.appendChild(panel.element);
   root.appendChild(consent.element);
@@ -137,6 +141,7 @@ export function mount(input: Partial<PipConfig>): PipInstance {
     },
     isPaused: () => isPaused,
     destroy: () => {
+      overlay.destroy();
       host.remove();
       if (activeInstance === instance) {
         activeInstance = null;
