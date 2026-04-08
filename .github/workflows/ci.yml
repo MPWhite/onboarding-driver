@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The server package depends only on `ai` and `zod`, so it can build
+      # in isolation. The core package is also standalone. The demo app
+      # depends on both workspace packages via `workspace:*` which turbo
+      # resolves via the topological `^build` dep in turbo.json.
+      - name: Typecheck all packages
+        run: pnpm turbo run typecheck
+
+      - name: Build all packages
+        run: pnpm turbo run build
+
+      # Bundle size gate for the widget. Keeps us honest about the design
+      # doc's 35KB gzipped target. The gzip -c + wc -c dance avoids pulling
+      # in size-limit (or any other tool) for a single threshold check.
+      - name: Check widget gzipped bundle size
+        run: |
+          size=$(gzip -c packages/core/dist/iife.js | wc -c)
+          limit=35840  # 35 KB in bytes (35 * 1024)
+          echo "IIFE gzipped: $size bytes (limit: $limit)"
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error::Widget bundle exceeds gzipped size limit ($size > $limit)"
+            exit 1
+          fi
