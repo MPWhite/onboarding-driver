@@ -8,12 +8,25 @@
 import { resolveConfig } from './config.js';
 import { createShadowContainer } from './shadow-root.js';
 import { createMouseButton } from './widget/mouse-button.js';
+import { createChatPanel, type ChatPanelHandle } from './widget/chat-panel.js';
+import {
+  createConsentDialog,
+  readConsent,
+  writeConsent,
+  type ConsentDialogHandle,
+} from './widget/consent-dialog.js';
 import type { PipConfig, PipInstance } from './types.js';
 
-export type { PipConfig, PipInstance, PipOutgoingPayload, PipUIMessageLike, PipMessagePart } from './types.js';
+export type {
+  PipConfig,
+  PipInstance,
+  PipOutgoingPayload,
+  PipUIMessageLike,
+  PipMessagePart,
+} from './types.js';
 export { PipConfigError } from './config.js';
 
-/** Library version — injected at build time from package.json. */
+/** Library version — bumped as part of releases. */
 export const VERSION = '0.0.0';
 
 /**
@@ -21,8 +34,8 @@ export const VERSION = '0.0.0';
  * controlled programmatically or destroyed later.
  *
  * Calling `mount()` twice is a no-op on the second call and returns the
- * existing instance. This keeps consumers who blindly call it inside React
- * effects or other re-entrant code from stacking widgets.
+ * existing instance — keeps consumers who call it inside React effects or
+ * other re-entrant code from stacking widgets.
  */
 export function mount(input: Partial<PipConfig>): PipInstance {
   if (typeof document === 'undefined') {
@@ -37,31 +50,90 @@ export function mount(input: Partial<PipConfig>): PipInstance {
 
   const { host, root } = createShadowContainer(mountTarget);
 
-  let isPaused = false;
-  let isOpen = false;
+  let isPaused = readConsent() === 'denied';
+
+  // Build the UI children in order. Order matters for stacking: button
+  // and panel are peers; consent dialog sits above both as an overlay.
+  const panel: ChatPanelHandle = createChatPanel({
+    onSend: (text) => {
+      panel.addUserMessage(text);
+      panel.setSending(true);
+      // Transport arrives in task 7; for now, provide a visible placeholder
+      // so the UI feels alive during the scaffold phase.
+      const turn = panel.startAssistantTurn();
+      requestAnimationFrame(() => {
+        turn.appendText(
+          "(transport not wired yet — this is a placeholder. I'll have real answers once the streaming layer lands.)",
+        );
+        turn.finish();
+        panel.setSending(false);
+      });
+      if (config.debug) {
+        console.log('[pip] user sent:', text);
+      }
+    },
+    onClose: () => {
+      panel.hide();
+    },
+    onTogglePause: (paused) => {
+      isPaused = paused;
+    },
+  });
+
+  // Start in paused state if the user has previously declined consent.
+  if (isPaused) panel.setPaused(true);
 
   const button = createMouseButton({
     onClick: () => {
-      if (isPaused) return;
-      isOpen = !isOpen;
-      // Chat panel toggling lands in the next task; for now, log so we can
-      // smoke-test wiring end-to-end.
-      if (config.debug) {
-        console.log('[pip] button clicked, isOpen=', isOpen);
+      if (panel.isVisible()) {
+        panel.hide();
+        return;
       }
+      if (readConsent() === null) {
+        consent.show();
+        return;
+      }
+      panel.show();
     },
   });
+
+  const consent: ConsentDialogHandle = createConsentDialog({
+    onAccept: () => {
+      panel.show();
+    },
+    onDecline: () => {
+      isPaused = true;
+      panel.setPaused(true);
+      panel.show();
+    },
+    onClose: () => {
+      // User dismissed without deciding. Don't open the panel; they can try
+      // again by clicking the mouse button.
+    },
+  });
+
   root.appendChild(button);
+  root.appendChild(panel.element);
+  root.appendChild(consent.element);
 
   const instance: PipInstance = {
     open: () => {
-      isOpen = true;
+      if (readConsent() === null) {
+        consent.show();
+      } else {
+        panel.show();
+      }
     },
     close: () => {
-      isOpen = false;
+      panel.hide();
     },
-    setPaused: (paused: boolean) => {
+    setPaused: (paused) => {
       isPaused = paused;
+      panel.setPaused(paused);
+      if (paused) {
+        // Reflect kill-switch intent in consent so reloads remember it.
+        writeConsent('denied');
+      }
     },
     isPaused: () => isPaused,
     destroy: () => {
@@ -77,7 +149,6 @@ export function mount(input: Partial<PipConfig>): PipInstance {
   return instance;
 }
 
-/** The single active pip instance, if any. Exported for tests and auto-mount. */
 let activeInstance: PipInstance | null = null;
 
 export function getActiveInstance(): PipInstance | null {
