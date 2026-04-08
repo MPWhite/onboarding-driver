@@ -101,14 +101,21 @@ check(
 
 // Core auto entry — also importable, should not throw just by being imported
 // in Node (the DOMContentLoaded path requires `document`, so the module
-// should no-op safely in Node).
+// should no-op safely in Node). Also verifies the auto entry re-exports
+// the full public API so script-tag IIFE consumers get `pip.mount(...)`
+// etc. on the window global as a manual escape hatch.
 let autoImportErr;
+let auto;
 try {
-  await import(path.join(ROOT, 'packages/core/dist/auto.js'));
+  auto = await import(path.join(ROOT, 'packages/core/dist/auto.js'));
 } catch (e) {
   autoImportErr = e;
 }
 check('core/auto: imports cleanly in Node (no document)', !autoImportErr);
+check('core/auto: re-exports mount', typeof auto?.mount === 'function');
+check('core/auto: re-exports getActiveInstance', typeof auto?.getActiveInstance === 'function');
+check('core/auto: re-exports VERSION', typeof auto?.VERSION === 'string');
+check('core/auto: re-exports PipConfigError', typeof auto?.PipConfigError === 'function');
 
 // IIFE bundle sanity — should be valid JS and not crash when parsed.
 const fs = await import('node:fs');
@@ -125,6 +132,45 @@ try {
 } catch (e) {
   check('core/iife: parses as valid JavaScript (FAILED: ' + e.message + ')', false);
 }
+
+// ---- CJS builds ----
+// We ship both ESM (checked above) and CJS. CommonJS consumers hit a
+// completely different entry file and a different evaluation model —
+// circular exports that work in ESM can deadlock in CJS, and tsup's
+// CJS output has occasionally lost symbols. Use createRequire from the
+// ESM context to pull the CJS builds.
+const { createRequire } = await import('node:module');
+const require = createRequire(import.meta.url);
+
+const serverCjs = require(
+  path.join(ROOT, 'packages/server/dist/index.cjs'),
+);
+check('server/cjs: createPipHandler is a function', typeof serverCjs.createPipHandler === 'function');
+check('server/cjs: markdownFileContext is a function', typeof serverCjs.markdownFileContext === 'function');
+check('server/cjs: buildSystemPrompt is a function', typeof serverCjs.buildSystemPrompt === 'function');
+check('server/cjs: PipRequestSchema has parse()', typeof serverCjs.PipRequestSchema?.parse === 'function');
+
+const serverNextCjs = require(
+  path.join(ROOT, 'packages/server/dist/next.cjs'),
+);
+check('server/next.cjs: re-exports createPipHandler', typeof serverNextCjs.createPipHandler === 'function');
+
+const coreCjs = require(path.join(ROOT, 'packages/core/dist/index.cjs'));
+check('core/cjs: mount is a function', typeof coreCjs.mount === 'function');
+check('core/cjs: VERSION is a string', typeof coreCjs.VERSION === 'string');
+check('core/cjs: PipConfigError is a constructor', typeof coreCjs.PipConfigError === 'function');
+
+// core/cjs mount() should also throw its browser guard in Node
+let cjsMountErr;
+try {
+  coreCjs.mount({ endpoint: '/api/pip' });
+} catch (e) {
+  cjsMountErr = e;
+}
+check(
+  'core/cjs: mount() throws browser-environment error in Node',
+  cjsMountErr && /browser/i.test(cjsMountErr.message),
+);
 
 // ---- Report ----
 let failures = 0;
