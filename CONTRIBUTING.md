@@ -42,9 +42,24 @@ Run the same checks CI runs:
 
 ```bash
 pnpm turbo run typecheck test build
+node scripts/smoke-test-dist.mjs
 ```
 
 If that passes and `packages/core/dist/iife.js` gzips to under 35 KB, CI will be green. The bundle-size check is in [`.github/workflows/ci.yml`](.github/workflows/ci.yml); it's a one-liner, not a tool dependency.
+
+### Add a changeset
+
+Any PR that changes behavior in `@pip-help/core` or `@pip-help/server` should include a [changeset](https://github.com/changesets/changesets) so the version bump and changelog are automated:
+
+```bash
+pnpm changeset
+```
+
+Pick which packages changed, choose the bump type (`patch` / `minor` / `major`), and write a user-facing one-line summary. It'll create a markdown file in `.changeset/` — commit it with your PR.
+
+`@pip-help/core` and `@pip-help/server` are configured as a [fixed group](.changeset/config.json), so they version together. A change to either bumps both. The demo app (`@pip-help/demo`) is ignored from releases.
+
+Changes that don't affect shipped behavior (docs, tests, CI) don't need a changeset.
 
 ## Commit style
 

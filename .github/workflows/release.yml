@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Version + publish (via changesets)
+    runs-on: ubuntu-latest
+    # Only run on the main branch, not on PR events. The changesets action
+    # opens its own PR ("Version Packages") and we need that PR flow to
+    # work on top of `push: main`, not PR triggers.
+    if: github.repository == 'MPWhite/onboarding-driver'
+    permissions:
+      contents: write        # push the version PR branch
+      pull-requests: write   # open/update the version PR
+      id-token: write        # npm provenance (see publish step)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Changesets needs full history to diff against base for detecting
+          # which packages changed.
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm turbo run build
+
+      # The changesets action:
+      #   - If there are unreleased changesets in `.changeset/*.md`, it
+      #     opens (or updates) a "Version Packages" PR that runs
+      #     `pnpm changeset version` on the branch. When that PR merges,
+      #     this workflow runs again on the merge commit.
+      #   - If there are NO pending changesets but package.json versions
+      #     have been bumped (via the merged Version Packages PR), it
+      #     runs the `publish` command which invokes `pnpm publish -r`.
+      - name: Create Release PR or publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm -r publish --access public --no-git-checks
+          version: pnpm changeset version
+          commit: 'chore: version packages'
+          title: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # NPM_TOKEN must be set in repo secrets for `pnpm publish` to work.
+          # Until then, the publish step will fail loudly — the version PR
+          # flow still works without it.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
