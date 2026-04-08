@@ -52,6 +52,14 @@ jobs:
       - name: Build all packages
         run: pnpm turbo run build
 
+      # Smoke-test the built dist artifacts by importing them in a real
+      # Node process. Catches failure modes that typecheck + build miss:
+      # circular exports, dropped symbols in one format but not the other,
+      # unintended Node-only API leaks in the browser IIFE, broken package
+      # exports resolution. 22 checks — see scripts/smoke-test-dist.mjs.
+      - name: Smoke-test built dist
+        run: node scripts/smoke-test-dist.mjs
+
       # Bundle size gate for the widget. Keeps us honest about the design
       # doc's 35KB gzipped target. The gzip -c + wc -c dance avoids pulling
       # in size-limit (or any other tool) for a single threshold check.
