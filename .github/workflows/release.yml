@@ -54,22 +54,19 @@ jobs:
       #     this workflow runs again on the merge commit.
       #   - If there are NO pending changesets but package.json versions
       #     have been bumped (via the merged Version Packages PR), it
-      #     runs the `publish` command which invokes `pnpm publish -r`.
+      #     runs the `publish` command which invokes our release script.
       #
-      # The publish command is gated on NPM_TOKEN being set so the
-      # workflow doesn't fail immediately on repos that haven't
-      # configured the secret yet. The version PR flow still works
-      # without a token — only the actual npm publish is blocked.
+      # IMPORTANT: changesets/action does NOT pipe the `publish:` value
+      # through a shell — it splits by whitespace and calls
+      # @actions/exec. That means multi-line bash conditionals in the
+      # YAML itself won't work. The gating on NPM_TOKEN has to happen
+      # inside a real script file with a shebang. See
+      # scripts/release-publish.sh.
       - name: Create Release PR or publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: |
-            if [ -n "$NPM_TOKEN" ]; then
-              pnpm -r publish --access public --no-git-checks
-            else
-              echo "::warning::NPM_TOKEN not set — skipping publish. Configure the secret to enable releases."
-            fi
+          publish: ./scripts/release-publish.sh
           version: pnpm changeset version
           commit: 'chore: version packages'
           title: 'chore: version packages'
