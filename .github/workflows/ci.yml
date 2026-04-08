@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck all packages
         run: pnpm turbo run typecheck
 
+      - name: Run unit tests
+        run: pnpm turbo run test
+
       - name: Build all packages
         run: pnpm turbo run build
 
