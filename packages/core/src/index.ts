@@ -56,8 +56,12 @@ export function mount(input: Partial<PipConfig>): PipInstance {
 
   const overlay: OverlayHandle = createOverlay();
 
-  // Forward declare so onSend can reference the transport before it exists.
+  // Forward declare so onSend can reference the transport before it exists,
+  // and so onClose can focus the button after hiding the panel (for a11y —
+  // keyboard users need focus to land somewhere meaningful when the dialog
+  // dismisses, not be left orphaned on a hidden textarea).
   let transport: TransportController | null = null;
+  let button: HTMLButtonElement | null = null;
 
   // Build the UI children in order. Order matters for stacking: button
   // and panel are peers; consent dialog sits above both as an overlay.
@@ -70,6 +74,9 @@ export function mount(input: Partial<PipConfig>): PipInstance {
     },
     onClose: () => {
       panel.hide();
+      // Return focus to the trigger. Skipped only if button hasn't been
+      // constructed yet (unreachable — onClose only fires on user input).
+      button?.focus();
     },
     onTogglePause: (paused) => {
       isPaused = paused;
@@ -81,10 +88,11 @@ export function mount(input: Partial<PipConfig>): PipInstance {
   // Start in paused state if the user has previously declined consent.
   if (isPaused) panel.setPaused(true);
 
-  const button = createMouseButton({
+  button = createMouseButton({
     onClick: () => {
       if (panel.isVisible()) {
         panel.hide();
+        button?.focus();
         return;
       }
       if (readConsent() === null) {
