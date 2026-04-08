@@ -2,12 +2,29 @@
   "name": "@pip-help/server",
   "version": "0.0.0",
   "description": "Backend adapter for pip — wraps Vercel AI SDK to answer contextual help questions.",
+  "keywords": [
+    "help",
+    "ai",
+    "ai-sdk",
+    "vercel-ai-sdk",
+    "nextjs",
+    "contextual-help",
+    "in-app-assistant",
+    "pip"
+  ],
   "license": "MIT",
   "author": "Matt White",
+  "homepage": "https://github.com/MPWhite/onboarding-driver#readme",
+  "bugs": {
+    "url": "https://github.com/MPWhite/onboarding-driver/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MPWhite/onboarding-driver.git",
     "directory": "packages/server"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "main": "./dist/index.cjs",

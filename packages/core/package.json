@@ -2,12 +2,29 @@
   "name": "@pip-help/core",
   "version": "0.0.0",
   "description": "Drop-in help widget — a tiny mouse that helps your users.",
+  "keywords": [
+    "help",
+    "onboarding",
+    "widget",
+    "ai",
+    "chatbot",
+    "contextual-help",
+    "in-app-assistant",
+    "pip"
+  ],
   "license": "MIT",
   "author": "Matt White",
+  "homepage": "https://github.com/MPWhite/onboarding-driver#readme",
+  "bugs": {
+    "url": "https://github.com/MPWhite/onboarding-driver/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MPWhite/onboarding-driver.git",
     "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "sideEffects": [
