@@ -115,9 +115,18 @@ export function createTransport({
         payload = await config.beforeSend(payload);
       }
 
-      // 5. Debug mode — log instead of sending.
+      // 5. Debug mode — log and short-circuit without sending.
+      //    This is the entire point of debug mode: give devs a way to
+      //    audit exactly what pip would ship BEFORE they ship it to
+      //    production. If we sent anyway, debug mode would be a
+      //    diagnostic log with no safety value.
       if (config.debug) {
-        console.log('[pip] outgoing payload:', payload);
+        console.log('[pip] outgoing payload (debug mode — not sent):', payload);
+        turn.appendText(
+          '(debug mode: request not sent. See console for the payload that would have been posted.)',
+        );
+        turn.finish();
+        return;
       }
 
       // 6. Fetch + stream.
