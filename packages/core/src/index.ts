@@ -50,6 +50,20 @@ export function mount(input: Partial<PipConfig>): PipInstance {
   const config = resolveConfig(input);
   const mountTarget = config.mountTarget ?? document.body;
 
+  // If we're running in `<head>` before <body> exists and no explicit
+  // mountTarget was passed, fail loudly with a useful error instead of
+  // letting `appendChild` throw an opaque "Cannot read properties of
+  // null" a few stack frames later. The auto-mount path already defers
+  // until DOMContentLoaded so this only fires on misuse of the manual
+  // API.
+  if (!mountTarget) {
+    throw new Error(
+      'pip: mount() was called before <body> existed. ' +
+        'Defer your call until DOMContentLoaded, use `@pip-help/core/auto`, ' +
+        'or pass an explicit `mountTarget` to mount().',
+    );
+  }
+
   const { host, root } = createShadowContainer(mountTarget);
 
   let isPaused = readConsent() === 'denied';
