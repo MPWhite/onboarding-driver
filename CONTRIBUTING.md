@@ -102,7 +102,7 @@ File an issue with:
 4. A minimal reproduction if possible (a `pip.md` + HTML snippet is usually enough)
 5. Browser + OS
 
-For security issues, please don't file a public issue — email mattwhite@… (update with real address before publishing).
+For security issues, please don't file a public issue — see [SECURITY.md](SECURITY.md) for the private reporting path.
 
 ## License
 

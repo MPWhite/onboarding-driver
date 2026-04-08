@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/MPWhite/onboarding-driver/security/advisories/new
+    about: Please report security issues privately via GitHub Security Advisories, not in public issues. See SECURITY.md.
+  - name: Question or discussion
+    url: https://github.com/MPWhite/onboarding-driver/discussions
+    about: For open-ended questions or design discussions, start a Discussion rather than filing an issue.

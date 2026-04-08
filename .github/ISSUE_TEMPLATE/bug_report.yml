@@ -1,0 +1,77 @@
+name: Bug report
+description: Something in pip doesn't work the way it's supposed to.
+labels: ['bug', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please don't use this for security issues.** See [SECURITY.md](../../SECURITY.md) for private reporting.
+
+        Before filing, check if there's an open issue for the same thing so we can avoid duplicates.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe what you saw and what you expected instead. Be specific — "it didn't work" is hard to act on.
+      placeholder: |
+        When I clicked the mouse icon, the chat panel opened but pressing Enter in the input didn't send my message. I expected the message to go to the backend.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: |
+        The smallest possible example that triggers the bug. A code snippet is ideal; a link to a gist, CodeSandbox, or a branch is also fine. If you can't isolate it, describe the shape of your host app (framework, auth, relevant config).
+      placeholder: |
+        Next.js 16 App Router app, default `createPipHandler` wiring, `pip.md` is ~2 KB, clicked the mouse on `/dashboard` and asked "how do I create a project?" — widget shows "(no response)".
+    validations:
+      required: true
+
+  - type: input
+    id: pip-version
+    attributes:
+      label: pip version
+      description: '`@pip-help/core` and `@pip-help/server` versions, or the commit SHA if unreleased.'
+      placeholder: '0.0.0 (commit abc1234)'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      multiple: true
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Arc
+        - Brave
+        - Other (specify in "Other context")
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: 'macOS 14.2, Windows 11, Ubuntu 24.04, iOS 17.2, etc.'
+    validations:
+      required: true
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Browser console output
+      description: Paste any `[pip]` log lines or red error messages from the browser DevTools console.
+      render: text
+
+  - type: textarea
+    id: other-context
+    attributes:
+      label: Other context
+      description: Anything else that might be relevant — unusual host CSS, CSP headers, custom `redact`/`beforeSend` config, etc.

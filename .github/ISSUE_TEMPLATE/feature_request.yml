@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest an improvement or new capability.
+labels: ['enhancement', 'triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for thinking about pip with me. Before you file, a few quick reality checks:
+
+        - **Is this on the roadmap?** See [`docs/design/2026-04-07-v1-design.md`](../../docs/design/2026-04-07-v1-design.md) for what's planned in v1.1+ (Set-of-Mark pointing, agent actions, vector-search recipe, etc.). If it's already there, react to that section instead of filing new.
+        - **Is this a change to the public API of `@pip-help/core` or `@pip-help/server`?** If yes, a design doc PR under `docs/design/` is more useful than an issue — see CONTRIBUTING.md for the template.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: |
+        Describe the user-facing situation that isn't great today. Features without problems are the most common dead-end.
+      placeholder: |
+        I want to add pip to a site with a lot of dynamic content — products loaded via React Query that arrive 500ms after the initial render. When users ask pip about them, the screenshot is taken before the content has finished loading.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: Your idea, if you have one. It's fine to write "I don't know — here's what I need" if the shape isn't clear yet.
+      placeholder: |
+        A `waitFor` option on `mount()` that takes a predicate function, and the widget waits for it to return true before taking the screenshot.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: |
+        What else could solve the problem? This helps surface whether there's already a way, or whether the right answer is a different shape.
+      placeholder: |
+        Users could manually trigger pip from their code via `pip.open()` after their content finishes loading — but that requires them to import the package instead of using the script tag.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Links to similar features in other tools, screenshots, or anything else that helps explain the shape.

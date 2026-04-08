@@ -44,6 +44,10 @@ jobs:
       - name: Run unit tests
         run: pnpm turbo run test
 
+      - name: Coverage report (core)
+        run: pnpm --filter @pip-help/core test -- --coverage --coverage.exclude='**/*.test.ts' --coverage.exclude='**/*.config.ts' --coverage.exclude='dist/**' --coverage.reporter=text || true
+        continue-on-error: true
+
       - name: Build all packages
         run: pnpm turbo run build
 
