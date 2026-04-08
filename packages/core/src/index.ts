@@ -114,7 +114,9 @@ export function mount(input: Partial<PipConfig>): PipInstance {
     },
     onClose: () => {
       // User dismissed without deciding. Don't open the panel; they can try
-      // again by clicking the mouse button.
+      // again by clicking the mouse button. Return focus there so keyboard
+      // users don't lose their place.
+      button?.focus();
     },
   });
 
