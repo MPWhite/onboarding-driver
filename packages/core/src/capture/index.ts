@@ -73,6 +73,7 @@ export {
   findRedactionTargets,
   measureRedactionRects,
   applyRectsToScreenshot,
+  RedactionError,
 } from './redact.js';
 export { buildDomSnapshot } from './dom-snapshot.js';
 export type { RedactionRect } from './redact.js';

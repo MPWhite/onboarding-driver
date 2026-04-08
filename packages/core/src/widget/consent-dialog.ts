@@ -117,6 +117,36 @@ export function createConsentDialog(options: ConsentDialogOptions): ConsentDialo
     }
   });
 
+  // Keyboard handling inside the dialog:
+  //   - Escape dismisses without deciding (same as backdrop click)
+  //   - Tab and Shift+Tab cycle between the two buttons — simple focus
+  //     trap that's enough for our two-button dialog. A general trap
+  //     would enumerate all focusable descendants, but we know the
+  //     entire interactive surface is just these two buttons.
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      hide();
+      options.onClose();
+      return;
+    }
+    if (event.key === 'Tab') {
+      const active = (event.target as HTMLElement) ?? null;
+      if (event.shiftKey) {
+        if (active === declineBtn) {
+          event.preventDefault();
+          acceptBtn?.focus();
+        }
+      } else {
+        if (active === acceptBtn) {
+          event.preventDefault();
+          declineBtn?.focus();
+        }
+      }
+    }
+  });
+
   function show(): void {
     backdrop.style.display = 'grid';
     acceptBtn?.focus();

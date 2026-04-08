@@ -117,6 +117,16 @@ export function createChatPanel(options: ChatPanelOptions): ChatPanelHandle {
     }
   });
 
+  // Escape closes the panel from anywhere inside it. Listener is on the
+  // panel element (not window) so it doesn't fire when the panel is
+  // hidden and the user presses Escape elsewhere on the host page.
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      options.onClose();
+    }
+  });
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const text = textarea.value.trim();

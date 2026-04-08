@@ -89,15 +89,28 @@ export function measureRedactionRects(elements: HTMLElement[]): RedactionRect[] 
  * fill over every rect with black, and re-encode. All of this stays in the
  * browser — the raw screenshot never escapes to any worker or network call.
  *
- * If the browser can't load the image (e.g., taint errors), we fall back to
- * the original screenshot rather than throwing, because a partially redacted
- * image is never safer than a fully missing one.
+ * FAIL-CLOSED INVARIANT: if we have rects to redact and anything along the
+ * canvas path fails (context creation, taint errors on toDataURL, image load),
+ * we THROW rather than return the unredacted source. The transport layer
+ * catches the throw and surfaces an error in the chat bubble. This matters
+ * because the whole privacy story depends on the redacted screenshot being
+ * the only one that leaves the browser — if we fall back to the original
+ * on error, a single weird browser state leaks password fields.
  */
+export class RedactionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RedactionError';
+  }
+}
+
 export async function applyRectsToScreenshot(
   screenshot: string,
   rects: RedactionRect[],
   dpr: number,
 ): Promise<string> {
+  // No rects → nothing sensitive to redact → the raw screenshot IS the
+  // redacted screenshot. This is the only safe short-circuit.
   if (rects.length === 0) return screenshot;
 
   const img = await loadImage(screenshot);
@@ -105,7 +118,12 @@ export async function applyRectsToScreenshot(
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return screenshot;
+  if (!ctx) {
+    throw new RedactionError(
+      'pip: could not create a 2D canvas context to redact the screenshot. ' +
+        'Refusing to send the unredacted original.',
+    );
+  }
 
   ctx.drawImage(img, 0, 0);
   ctx.fillStyle = '#000000';
@@ -115,9 +133,12 @@ export async function applyRectsToScreenshot(
 
   try {
     return canvas.toDataURL('image/png');
-  } catch {
-    // Tainted canvas — fall back to the original.
-    return screenshot;
+  } catch (error) {
+    throw new RedactionError(
+      'pip: canvas was tainted and could not be re-encoded after redaction. ' +
+        'Refusing to send the unredacted original. Original cause: ' +
+        (error instanceof Error ? error.message : String(error)),
+    );
   }
 }
 

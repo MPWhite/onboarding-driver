@@ -3,6 +3,7 @@ import {
   findRedactionTargets,
   measureRedactionRects,
   applyRectsToScreenshot,
+  RedactionError,
 } from './redact.js';
 
 /**
@@ -136,14 +137,84 @@ describe('measureRedactionRects', () => {
 });
 
 describe('applyRectsToScreenshot', () => {
+  const TINY_PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8//8/AwAI/AL+TQoc2QAAAABJRU5ErkJggg==';
+
   it('returns the original data URL when there are no rects', async () => {
-    const tiny =
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8//8/AwAI/AL+TQoc2QAAAABJRU5ErkJggg==';
-    const result = await applyRectsToScreenshot(tiny, [], 1);
-    expect(result).toBe(tiny);
+    // Empty-rects is the ONLY safe short-circuit: if nothing needs
+    // redacting, the original IS the redacted output.
+    const result = await applyRectsToScreenshot(TINY_PNG, [], 1);
+    expect(result).toBe(TINY_PNG);
   });
 
-  // Canvas rasterization inside jsdom is unreliable — html-to-image path
-  // tests live in an e2e browser test, not here. The "no rects" short
-  // circuit above is what matters for unit-level correctness.
+  it('fails closed (throws) if the canvas 2D context cannot be created', async () => {
+    // Force getContext('2d') to return null to simulate a canvas allocation
+    // failure. This is defensive — real browsers virtually never hit it —
+    // but if it ever happens, we must NOT ship the unredacted screenshot.
+    const realGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      ..._args: unknown[]
+    ) {
+      return null;
+    } as unknown as typeof realGetContext;
+
+    // Stub Image loading since jsdom doesn't decode image data URLs.
+    const originalImage = globalThis.Image;
+    class FakeImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      naturalWidth = 100;
+      naturalHeight = 100;
+      crossOrigin = '';
+      set src(_v: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    (globalThis as { Image: unknown }).Image = FakeImage;
+
+    try {
+      await expect(
+        applyRectsToScreenshot(
+          TINY_PNG,
+          [{ x: 0, y: 0, width: 10, height: 10 }],
+          1,
+        ),
+      ).rejects.toThrow(RedactionError);
+    } finally {
+      HTMLCanvasElement.prototype.getContext = realGetContext;
+      (globalThis as { Image: unknown }).Image = originalImage;
+    }
+  });
+
+  it('fails closed (throws) if the image fails to load', async () => {
+    const originalImage = globalThis.Image;
+    class FakeImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      naturalWidth = 0;
+      naturalHeight = 0;
+      crossOrigin = '';
+      set src(_v: string) {
+        queueMicrotask(() => this.onerror?.());
+      }
+    }
+    (globalThis as { Image: unknown }).Image = FakeImage;
+
+    try {
+      await expect(
+        applyRectsToScreenshot(
+          TINY_PNG,
+          [{ x: 0, y: 0, width: 10, height: 10 }],
+          1,
+        ),
+      ).rejects.toThrow(/failed to load/);
+    } finally {
+      (globalThis as { Image: unknown }).Image = originalImage;
+    }
+  });
+
+  // Canvas rasterization inside jsdom is unreliable for the happy-path
+  // case — that lives in a real-browser e2e test. The critical unit-level
+  // behavior is the fail-closed invariant above, which is now locked in.
 });

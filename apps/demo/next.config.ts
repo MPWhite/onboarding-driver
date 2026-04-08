@@ -9,11 +9,21 @@ import path from 'node:path';
  *
  * `turbopack.root` is pinned to the monorepo root so Next doesn't guess
  * wrong when there's a parent lockfile higher up the filesystem.
+ *
+ * `outputFileTracingIncludes` forces Next to bundle `pip.md` into the
+ * `/api/pip` function output. Without this, `process.cwd()` at runtime
+ * points at the function's working dir and the file tracer doesn't know
+ * to include a markdown file it didn't discover through imports — the
+ * route would read a non-existent path on Vercel and `markdownFileContext`
+ * would return the "not found" placeholder.
  */
 const config: NextConfig = {
   transpilePackages: ['@pip-help/core', '@pip-help/server'],
   turbopack: {
     root: path.join(import.meta.dirname, '../..'),
+  },
+  outputFileTracingIncludes: {
+    '/api/pip': ['./pip.md'],
   },
 };
 
