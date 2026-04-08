@@ -146,6 +146,37 @@ Upper bound on the agent loop. Each step is one LLM generation — text output O
 
 For pip's v1 scope (one `highlight` tool call + one text response), the realistic maximum is 2. `5` is a safety margin; lower it to `2` or `3` if you want to cap costs aggressively and don't care about follow-up tool calls in a single turn.
 
+Internally this maps to `stopWhen: stepCountIs(maxSteps)` — if you want a custom stop condition, write your own `ToolLoopAgent` instead of using `createPipHandler`.
+
+## `onError`
+
+**Type:** `(error: unknown) => string`
+**Default:** *(AI SDK default — returns the generic string `"An error occurred."`)*
+
+Called if an error escapes the agent stream. The returned string is sent to the client as the error message and rendered as an error bubble in the chat panel.
+
+**Why the default masks errors.** The AI SDK defaults to `"An error occurred."` specifically because provider errors can sometimes include API-key hints, URLs with bearer tokens, or other sensitive material. Surfacing raw error text to the browser is a leak waiting to happen. For production, the default is the right call.
+
+**Override it when:**
+
+- You're in development and want to see the real error in the chat bubble
+- You want to log to an observability stack and return a stable error code
+- You want to translate provider errors into user-facing language
+
+```ts
+createPipHandler({
+  model: 'anthropic/claude-sonnet-4.6',
+  getContext: markdownFileContext('./pip.md'),
+  onError: (error) => {
+    Sentry.captureException(error);
+    if (process.env.NODE_ENV === 'development') {
+      return error instanceof Error ? error.message : String(error);
+    }
+    return 'Something went wrong. Please try again.';
+  },
+});
+```
+
 ---
 
 ## How the handler works, end to end

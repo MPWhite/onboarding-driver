@@ -12,7 +12,8 @@
   "type": "module",
   "sideEffects": [
     "./dist/iife.js",
-    "./src/auto.ts"
+    "./dist/auto.js",
+    "./dist/auto.cjs"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

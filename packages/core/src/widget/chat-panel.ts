@@ -160,7 +160,10 @@ export function createChatPanel(options: ChatPanelOptions): ChatPanelHandle {
   function setSending(next: boolean): void {
     sending = next;
     sendBtn.disabled = sending || paused;
-    textarea.disabled = sending;
+    // Must also OR with `paused` — if the user hit pause mid-send, clearing
+    // the sending flag on completion would otherwise silently re-enable the
+    // textarea while the widget is supposed to be disabled.
+    textarea.disabled = sending || paused;
     sendBtn.classList.toggle('pip-send-loading', sending);
   }
 

@@ -61,6 +61,11 @@ export function createPipHandler(config: PipHandlerConfig) {
       agent,
       uiMessages,
       abortSignal: request.signal,
+      // Only pass `onError` if the dev supplied one — otherwise let the
+      // AI SDK use its default masking ("An error occurred"), which is
+      // the secure default because raw provider errors can contain
+      // API-key hints, URLs with tokens, or other secrets.
+      ...(config.onError ? { onError: config.onError } : {}),
     });
   };
 }

@@ -82,4 +82,25 @@ export interface PipHandlerConfig {
    * explanation, with a small safety margin.
    */
   maxSteps?: number;
+
+  /**
+   * Optional extractor run on any error that escapes the agent stream.
+   * The return value is sent to the client as the error message and
+   * rendered in the chat bubble.
+   *
+   * If omitted, the AI SDK's default behavior runs: errors are masked to
+   * a generic "An error occurred" string. This is the correct default
+   * for production because provider errors can occasionally include API
+   * key hints, full token URLs, or other secrets.
+   *
+   * Override this when you want richer error messages in development, or
+   * when you want to log the full error to your observability stack and
+   * return a stable error code to the client:
+   *
+   *   onError: (error) => {
+   *     logToSentry(error);
+   *     return error instanceof Error ? error.message : 'Unknown error';
+   *   }
+   */
+  onError?: (error: unknown) => string;
 }
