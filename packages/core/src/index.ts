@@ -16,6 +16,7 @@ import {
   type ConsentDialogHandle,
 } from './widget/consent-dialog.js';
 import { createOverlay, type OverlayHandle } from './overlay/index.js';
+import { createTransport, type TransportController } from './transport/index.js';
 import type { PipConfig, PipInstance } from './types.js';
 
 export type {
@@ -55,25 +56,17 @@ export function mount(input: Partial<PipConfig>): PipInstance {
 
   const overlay: OverlayHandle = createOverlay();
 
+  // Forward declare so onSend can reference the transport before it exists.
+  let transport: TransportController | null = null;
+
   // Build the UI children in order. Order matters for stacking: button
   // and panel are peers; consent dialog sits above both as an overlay.
   const panel: ChatPanelHandle = createChatPanel({
     onSend: (text) => {
-      panel.addUserMessage(text);
-      panel.setSending(true);
-      // Transport arrives in task 7; for now, provide a visible placeholder
-      // so the UI feels alive during the scaffold phase.
-      const turn = panel.startAssistantTurn();
-      requestAnimationFrame(() => {
-        turn.appendText(
-          "(transport not wired yet — this is a placeholder. I'll have real answers once the streaming layer lands.)",
-        );
-        turn.finish();
-        panel.setSending(false);
-      });
-      if (config.debug) {
-        console.log('[pip] user sent:', text);
-      }
+      if (isPaused) return;
+      // Fire-and-forget — transport owns its own error handling and
+      // reflects state through the panel handle.
+      void transport?.send(text);
     },
     onClose: () => {
       panel.hide();
@@ -82,6 +75,8 @@ export function mount(input: Partial<PipConfig>): PipInstance {
       isPaused = paused;
     },
   });
+
+  transport = createTransport({ config, panel, overlay });
 
   // Start in paused state if the user has previously declined consent.
   if (isPaused) panel.setPaused(true);
@@ -141,6 +136,8 @@ export function mount(input: Partial<PipConfig>): PipInstance {
     },
     isPaused: () => isPaused,
     destroy: () => {
+      transport?.abort();
+      transport?.reset();
       overlay.destroy();
       host.remove();
       if (activeInstance === instance) {
