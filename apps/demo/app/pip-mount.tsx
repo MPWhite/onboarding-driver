@@ -19,7 +19,7 @@ export function PipMount() {
   useEffect(() => {
     mount({
       endpoint: '/api/pip',
-      debug: process.env.NODE_ENV === 'development',
+      // debug: process.env.NODE_ENV === 'development',
     });
   }, []);
   return null;
