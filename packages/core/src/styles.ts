@@ -58,13 +58,32 @@ export const PIP_STYLES = /* css */ `
   pointer-events: auto;
 }
 
-/* Mouse button — the floating entry point */
-.pip-button {
+/* Mouse root — the moving anchor that carries the cursor, pill, and bubble.
+   Position is driven via CSS transform (translate3d) from JS so we get a
+   single composited layer animated on the GPU. "Idle home" is computed at
+   mount time to the bottom-right corner. */
+.pip-mouse-root {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: 56px;
-  height: 56px;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+  /* Smooth walk-to-target. Eased so the first few pixels move fast and the
+     last few settle — reads as a "pointing gesture" rather than a drift. */
+  transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Mouse cursor itself — absolute-centered on the root so transforms move
+   it cleanly without fighting with the pill/bubble children. */
+.pip-mouse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--pip-bg);
   color: var(--pip-fg);
@@ -73,134 +92,121 @@ export const PIP_STYLES = /* css */ `
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
   padding: 0;
+  pointer-events: auto;
+  transition: filter 200ms ease, transform 120ms ease;
 }
 
-.pip-button:hover {
-  transform: translateY(-2px);
+.pip-mouse:hover {
+  transform: translate(-50%, calc(-50% - 2px));
 }
 
-.pip-button svg {
-  width: 28px;
-  height: 28px;
+.pip-mouse svg {
+  width: 24px;
+  height: 24px;
 }
 
-/* Chat panel */
-.pip-panel {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  width: min(380px, calc(100vw - 40px));
-  height: min(560px, calc(100vh - 120px));
+.pip-mouse-paused {
+  filter: grayscale(1) opacity(0.55);
+}
+
+/* Sending — a soft pulse on the cursor so the user knows pip is working
+   even before the speech bubble opens. */
+.pip-mouse-sending {
+  animation: pip-mouse-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pip-mouse-pulse {
+  0%, 100% {
+    box-shadow: var(--pip-shadow);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.18), var(--pip-shadow);
+  }
+}
+
+/* Ask pill — always-visible input anchored to the left of the mouse in
+   its idle corner. Hidden whenever the mouse walks off to a target. */
+.pip-ask-pill {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  width: 180px;
+  background: var(--pip-bg);
+  border: 1px solid var(--pip-border);
+  border-radius: 999px;
+  box-shadow: var(--pip-shadow);
+  padding: 6px 12px;
+  pointer-events: auto;
+  transition: opacity 200ms ease, transform 200ms ease;
+  opacity: 1;
+}
+
+.pip-ask-pill-hidden {
+  opacity: 0;
+  transform: translateY(-50%) scale(0.92);
+  pointer-events: none;
+}
+
+.pip-ask-input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--pip-fg);
+  min-width: 0;
+}
+
+.pip-ask-input::placeholder {
+  color: var(--pip-muted);
+}
+
+.pip-ask-input:disabled {
+  color: var(--pip-muted);
+  cursor: not-allowed;
+}
+
+/* Speech bubble — hangs above the mouse by default. Fixed max width so
+   long answers wrap rather than stretching across the viewport. */
+.pip-bubble {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 260px;
+  min-width: 120px;
+  width: max-content;
+  padding: 10px 14px;
   background: var(--pip-bg);
   color: var(--pip-fg);
   border: 1px solid var(--pip-border);
-  border-radius: var(--pip-radius);
-  box-shadow: var(--pip-shadow);
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.pip-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--pip-border);
-  flex-shrink: 0;
-}
-
-.pip-panel-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.pip-panel-title-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--pip-accent);
-}
-
-.pip-panel-header-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.pip-panel-iconbtn {
-  background: transparent;
-  border: 0;
-  color: var(--pip-muted);
-  padding: 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background 100ms ease, color 100ms ease;
-}
-
-.pip-panel-iconbtn:hover {
-  background: var(--pip-border);
-  color: var(--pip-fg);
-}
-
-.pip-panel-iconbtn-active {
-  background: var(--pip-accent);
-  color: var(--pip-accent-fg);
-}
-
-.pip-panel-iconbtn-active:hover {
-  background: var(--pip-accent);
-  color: var(--pip-accent-fg);
-  opacity: 0.9;
-}
-
-/* Messages */
-.pip-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.pip-empty-state {
-  color: var(--pip-muted);
-  text-align: center;
-  padding: 24px 12px;
-  font-size: 13px;
-}
-
-.pip-msg {
-  max-width: 85%;
-  padding: 10px 12px;
   border-radius: 14px;
+  box-shadow: var(--pip-shadow);
   font-size: 13.5px;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-wrap: break-word;
-  line-height: 1.45;
+  pointer-events: auto;
 }
 
-.pip-msg-user {
-  align-self: flex-end;
-  background: var(--pip-accent);
-  color: var(--pip-accent-fg);
-  border-bottom-right-radius: 4px;
+/* Tail — small triangle pointing from the bubble toward the mouse. */
+.pip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--pip-bg);
+  filter: drop-shadow(0 1px 0 var(--pip-border));
 }
 
-.pip-msg-assistant {
-  align-self: flex-start;
-  background: var(--pip-border);
-  color: var(--pip-fg);
-  border-bottom-left-radius: 4px;
-}
-
-.pip-msg-assistant.pip-msg-streaming::after {
+.pip-bubble-streaming::before {
   content: '▌';
   display: inline-block;
   margin-left: 2px;
@@ -213,91 +219,15 @@ export const PIP_STYLES = /* css */ `
   50%, 100% { opacity: 0; }
 }
 
-.pip-msg-empty {
+.pip-bubble-empty {
   color: var(--pip-muted);
   font-style: italic;
 }
 
-.pip-msg-error {
+.pip-bubble-error {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
-}
-
-.pip-msg-system {
-  align-self: center;
-  font-size: 12px;
-  color: var(--pip-muted);
-  padding: 4px 10px;
-  text-align: center;
-  max-width: 85%;
-}
-
-/* Input form */
-.pip-input-form {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-top: 1px solid var(--pip-border);
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.pip-input {
-  flex: 1;
-  resize: none;
-  border: 1px solid var(--pip-border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-family: inherit;
-  font-size: 13.5px;
-  color: var(--pip-fg);
-  background: var(--pip-bg);
-  outline: none;
-  transition: border-color 100ms ease;
-  max-height: 160px;
-  min-height: 36px;
-  line-height: 1.4;
-}
-
-.pip-input:focus {
-  border-color: var(--pip-accent);
-}
-
-.pip-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.pip-send {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--pip-accent);
-  color: var(--pip-accent-fg);
-  border: 0;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  transition: transform 100ms ease, opacity 100ms ease;
-}
-
-.pip-send:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.pip-send:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pip-send-loading svg {
-  animation: pip-pulse 1s ease-in-out infinite;
-}
-
-@keyframes pip-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 /* Consent dialog */

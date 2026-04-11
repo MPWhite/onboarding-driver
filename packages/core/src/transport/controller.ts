@@ -1,11 +1,10 @@
 /**
- * Transport controller — the glue between chat UI, capture, network, and
- * overlay.
+ * Transport controller — the glue between the mouse widget, capture, the
+ * network fetch, and the pointing overlay.
  *
  * Each call to `send(text)`:
  *
- *   1. Appends a user message to the local conversation history and
- *      renders it in the chat panel.
+ *   1. Appends a user message to local conversation history.
  *   2. Runs the capture pipeline (screenshot + DOM snapshot + redaction).
  *   3. Builds the outgoing payload in the shape the server expects.
  *   4. Runs the dev's `beforeSend` hook if one was configured, giving them
@@ -14,17 +13,18 @@
  *      `config.debug` is enabled.
  *   6. POSTs the payload to the dev's endpoint and reads the UI message
  *      stream.
- *   7. Dispatches text-delta events to the active assistant turn, and
- *      tool-input-available events (for toolName === 'highlight') to the
- *      overlay.
+ *   7. Dispatches text-delta events to the active assistant turn (which
+ *      streams into the mouse's speech bubble), and tool-input-available
+ *      events for `highlight` to the overlay AND the mouse (so the cursor
+ *      walks to the target).
  *   8. On finish/error, closes the turn and unlocks the input.
  *
- * All errors are surfaced in the chat UI via `turn.error(message)` — the
- * widget should never throw into the host page.
+ * All errors are surfaced via `turn.error(message)` — the widget should
+ * never throw into the host page.
  */
 
 import { capturePage } from '../capture/index.js';
-import type { ChatPanelHandle } from '../widget/chat-panel.js';
+import type { MouseHandle } from '../widget/mouse.js';
 import type { AssistantTurnHandle } from '../widget/assistant-turn.js';
 import type { OverlayHandle } from '../overlay/index.js';
 import type { PipConfig, PipOutgoingPayload, PipUIMessageLike } from '../types.js';
@@ -38,13 +38,13 @@ export interface TransportController {
 
 export interface CreateTransportOptions {
   config: PipConfig;
-  panel: ChatPanelHandle;
+  mouse: MouseHandle;
   overlay: OverlayHandle;
 }
 
 export function createTransport({
   config,
-  panel,
+  mouse,
   overlay,
 }: CreateTransportOptions): TransportController {
   // Conversation history in UIMessage format. We keep screenshots OUT of
@@ -58,14 +58,16 @@ export function createTransport({
   async function send(text: string): Promise<void> {
     if (inFlight) {
       // Don't stack concurrent requests — drop the new send quietly. The
-      // panel's setSending(true) lock should prevent this anyway, but
+      // mouse's setSending(true) lock should prevent this anyway, but
       // programmatic callers (instance.open, tests) might hit this path.
       return;
     }
 
     // Close any active highlight overlay from a previous turn — we're
-    // moving on to a new question.
+    // moving on to a new question. The mouse returns home so the cursor
+    // is visibly "resetting" before the next answer lands.
     overlay.hide();
+    mouse.returnHome();
 
     // 1. Add the user turn to history + UI.
     const userMessage: PipUIMessageLike = {
@@ -74,10 +76,10 @@ export function createTransport({
       parts: [{ type: 'text', text }],
     };
     history.push(userMessage);
-    panel.addUserMessage(text);
+    mouse.addUserMessage(text);
 
-    panel.setSending(true);
-    const turn = panel.startAssistantTurn();
+    mouse.setSending(true);
+    const turn = mouse.startAssistantTurn();
 
     let assistantText = '';
     const assistantMessageId = `a_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -152,7 +154,7 @@ export function createTransport({
 
       // 7. Consume the UI message stream.
       for await (const event of readUiMessageStream(response.body)) {
-        handleEvent(event, turn, overlay, (delta) => {
+        handleEvent(event, turn, overlay, mouse, (delta) => {
           assistantText += delta;
         });
       }
@@ -175,7 +177,7 @@ export function createTransport({
         turn.error(message);
       }
     } finally {
-      panel.setSending(false);
+      mouse.setSending(false);
       inFlight = null;
     }
   }
@@ -191,11 +193,12 @@ export function createTransport({
   return { send, reset, abort };
 }
 
-/** Apply a single UI stream event to the chat + overlay. */
+/** Apply a single UI stream event to the mouse + overlay. */
 function handleEvent(
   event: UIStreamEvent,
   turn: AssistantTurnHandle,
   overlay: OverlayHandle,
+  mouse: MouseHandle,
   onTextDelta: (delta: string) => void,
 ): void {
   switch (event.type) {
@@ -211,7 +214,12 @@ function handleEvent(
       if (event.toolName === 'highlight') {
         const input = event.input;
         if (isHighlightInput(input)) {
-          overlay.show(input);
+          // Walk the cursor to the target center, then render the overlay
+          // backdrop + ring. The mouse owns the speech bubble (caption),
+          // so we suppress the overlay's own caption to avoid double-
+          // rendering the same text in two places.
+          mouse.moveTo(input.x + input.width / 2, input.y + input.height / 2);
+          overlay.show(input, { renderCaption: false });
         }
       }
       return;

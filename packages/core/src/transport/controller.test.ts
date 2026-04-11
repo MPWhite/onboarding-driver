@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createTransport } from './controller.js';
-import type { ChatPanelHandle } from '../widget/chat-panel.js';
+import type { MouseHandle } from '../widget/mouse.js';
 import type { AssistantTurnHandle } from '../widget/assistant-turn.js';
 import type { OverlayHandle } from '../overlay/index.js';
 import type { PipConfig } from '../types.js';
 
 /**
- * Tests for the transport controller — the layer that glues chat UI,
- * page capture, network fetch, stream parsing, and the overlay.
+ * Tests for the transport controller — the layer that glues the mouse
+ * widget, page capture, network fetch, stream parsing, and the overlay.
  *
  * We mock the capture module so these tests don't touch html-to-image,
- * and mock global fetch so they don't touch the network. Panel and
+ * and mock global fetch so they don't touch the network. Mouse and
  * overlay are fake objects with vi.fn() spies on every method we care
  * about. That lets us assert the exact call ordering the controller
  * should produce for each scenario.
@@ -31,25 +31,25 @@ vi.mock('../capture/index.js', () => ({
 // Re-import after mock so we can control its behavior per-test
 import { capturePage } from '../capture/index.js';
 
-/** Build a fake ChatPanelHandle with spies on every method. */
-function fakePanel(): ChatPanelHandle & { turn: AssistantTurnHandle & { appendText: ReturnType<typeof vi.fn>; finish: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
+/** Build a fake MouseHandle with spies on every method. */
+function fakeMouse(): MouseHandle & { turn: AssistantTurnHandle & { appendText: ReturnType<typeof vi.fn>; finish: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
   const turn = {
     appendText: vi.fn(),
     finish: vi.fn(),
     error: vi.fn(),
   };
-  const panel: ChatPanelHandle = {
+  const mouse: MouseHandle = {
     element: document.createElement('div'),
-    show: vi.fn(),
-    hide: vi.fn(),
-    isVisible: vi.fn(() => false),
     focusInput: vi.fn(),
     setPaused: vi.fn(),
     setSending: vi.fn(),
     addUserMessage: vi.fn(),
     startAssistantTurn: vi.fn(() => turn),
+    moveTo: vi.fn(),
+    returnHome: vi.fn(),
+    destroy: vi.fn(),
   };
-  return Object.assign(panel, { turn });
+  return Object.assign(mouse, { turn });
 }
 
 function fakeOverlay(): OverlayHandle {
@@ -112,23 +112,23 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('how do I create a project?');
 
-    // User message rendered + turn started + deltas streamed + finished
-    expect(panel.addUserMessage).toHaveBeenCalledWith(
+    // User message "rendered" + turn started + deltas streamed + finished
+    expect(mouse.addUserMessage).toHaveBeenCalledWith(
       'how do I create a project?',
     );
-    expect(panel.setSending).toHaveBeenCalledWith(true);
-    expect(panel.startAssistantTurn).toHaveBeenCalledOnce();
-    expect(panel.turn.appendText).toHaveBeenCalledWith('Hi ');
-    expect(panel.turn.appendText).toHaveBeenCalledWith('there');
-    expect(panel.turn.finish).toHaveBeenCalledOnce();
-    expect(panel.turn.error).not.toHaveBeenCalled();
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.setSending).toHaveBeenCalledWith(true);
+    expect(mouse.startAssistantTurn).toHaveBeenCalledOnce();
+    expect(mouse.turn.appendText).toHaveBeenCalledWith('Hi ');
+    expect(mouse.turn.appendText).toHaveBeenCalledWith('there');
+    expect(mouse.turn.finish).toHaveBeenCalledOnce();
+    expect(mouse.turn.error).not.toHaveBeenCalled();
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
   });
 
   it('posts the screenshot as a file part on the outgoing user message', async () => {
@@ -136,9 +136,9 @@ describe('createTransport', () => {
       sseResponse([sseLine({ type: 'finish' })]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('hello');
 
@@ -163,7 +163,7 @@ describe('createTransport', () => {
     });
   });
 
-  it('dispatches highlight tool calls to overlay.show with the input', async () => {
+  it('dispatches highlight tool calls to overlay + walks the mouse to the target center', async () => {
     fetchSpy.mockResolvedValueOnce(
       sseResponse([
         sseLine({ type: 'text-delta', id: 'm1', delta: 'Click here!' }),
@@ -177,20 +177,22 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('where?');
 
+    // Mouse walks to the CENTER of the target rect.
+    expect(mouse.moveTo).toHaveBeenCalledWith(125, 215);
+
+    // Overlay draws backdrop + ring, but the mouse owns the caption now
+    // so we explicitly suppress the overlay's caption.
     expect(overlay.show).toHaveBeenCalledOnce();
-    expect(overlay.show).toHaveBeenCalledWith({
-      x: 100,
-      y: 200,
-      width: 50,
-      height: 30,
-      caption: 'Start here',
-    });
+    expect(overlay.show).toHaveBeenCalledWith(
+      { x: 100, y: 200, width: 50, height: 30, caption: 'Start here' },
+      { renderCaption: false },
+    );
   });
 
   it('ignores highlight tool calls with malformed inputs', async () => {
@@ -206,13 +208,14 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('?');
 
     expect(overlay.show).not.toHaveBeenCalled();
+    expect(mouse.moveTo).not.toHaveBeenCalled();
   });
 
   it('ignores tool calls for unrecognized tool names', async () => {
@@ -228,24 +231,26 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('?');
 
     expect(overlay.show).not.toHaveBeenCalled();
+    expect(mouse.moveTo).not.toHaveBeenCalled();
   });
 
-  it('hides any existing highlight when a new turn starts', async () => {
+  it('hides overlay and returns mouse home when a new turn starts', async () => {
     fetchSpy.mockResolvedValueOnce(
       sseResponse([sseLine({ type: 'finish' })]),
     );
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
     await transport.send('hello');
     expect(overlay.hide).toHaveBeenCalled();
+    expect(mouse.returnHome).toHaveBeenCalled();
   });
 
   it('surfaces HTTP error status in turn.error', async () => {
@@ -253,30 +258,30 @@ describe('createTransport', () => {
       new Response('Invalid pip request payload', { status: 400 }),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('hi');
 
-    expect(panel.turn.error).toHaveBeenCalledOnce();
-    const [msg] = panel.turn.error.mock.calls[0]!;
+    expect(mouse.turn.error).toHaveBeenCalledOnce();
+    const [msg] = mouse.turn.error.mock.calls[0]!;
     expect(msg).toContain('400');
-    expect(panel.turn.finish).not.toHaveBeenCalled();
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.turn.finish).not.toHaveBeenCalled();
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
   });
 
   it('surfaces fetch network failures in turn.error', async () => {
     fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('hi');
 
-    expect(panel.turn.error).toHaveBeenCalledWith('Failed to fetch');
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.turn.error).toHaveBeenCalledWith('Failed to fetch');
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
   });
 
   it('surfaces error-type stream events', async () => {
@@ -288,13 +293,13 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('hi');
 
-    expect(panel.turn.error).toHaveBeenCalledWith('provider rate limited');
+    expect(mouse.turn.error).toHaveBeenCalledWith('provider rate limited');
   });
 
   it('drops concurrent sends silently while a request is in-flight', async () => {
@@ -304,17 +309,17 @@ describe('createTransport', () => {
       () => new Promise<Response>((r) => { firstResolve = r; }),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     const first = transport.send('first');
     await transport.send('second'); // dropped immediately, does not await fetch
 
     // Only one fetch call was made; only one user message was rendered.
     expect(fetchSpy).toHaveBeenCalledOnce();
-    expect(panel.addUserMessage).toHaveBeenCalledTimes(1);
-    expect(panel.addUserMessage).toHaveBeenCalledWith('first');
+    expect(mouse.addUserMessage).toHaveBeenCalledTimes(1);
+    expect(mouse.addUserMessage).toHaveBeenCalledWith('first');
 
     // Clean up the hanging first fetch
     firstResolve(sseResponse([sseLine({ type: 'finish' })]));
@@ -343,9 +348,9 @@ describe('createTransport', () => {
       });
     });
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     const sending = transport.send('hi');
     await fetchStartedPromise;
@@ -353,9 +358,9 @@ describe('createTransport', () => {
     await sending;
 
     expect(capturedSignal?.aborted).toBe(true);
-    expect(panel.turn.finish).toHaveBeenCalled();
-    expect(panel.turn.error).not.toHaveBeenCalled();
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.turn.finish).toHaveBeenCalled();
+    expect(mouse.turn.error).not.toHaveBeenCalled();
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
   });
 
   it('calls beforeSend with the payload and posts the transformed result', async () => {
@@ -370,11 +375,11 @@ describe('createTransport', () => {
       };
     });
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
     const transport = createTransport({
       config: { ...baseConfig, beforeSend },
-      panel,
+      mouse,
       overlay,
     });
 
@@ -389,11 +394,11 @@ describe('createTransport', () => {
   it('in debug mode, logs the payload and does NOT fetch', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
     const transport = createTransport({
       config: { ...baseConfig, debug: true },
-      panel,
+      mouse,
       overlay,
     });
 
@@ -407,26 +412,26 @@ describe('createTransport', () => {
     );
     // User still sees the turn complete (with an explanatory message)
     // so the UI doesn't appear frozen.
-    expect(panel.turn.appendText).toHaveBeenCalledWith(
+    expect(mouse.turn.appendText).toHaveBeenCalledWith(
       expect.stringContaining('debug mode'),
     );
-    expect(panel.turn.finish).toHaveBeenCalledOnce();
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.turn.finish).toHaveBeenCalledOnce();
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
     log.mockRestore();
   });
 
   it('propagates capture errors into turn.error', async () => {
     vi.mocked(capturePage).mockRejectedValueOnce(new Error('screenshot failed'));
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('hi');
 
-    expect(panel.turn.error).toHaveBeenCalledWith('screenshot failed');
+    expect(mouse.turn.error).toHaveBeenCalledWith('screenshot failed');
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(panel.setSending).toHaveBeenLastCalledWith(false);
+    expect(mouse.setSending).toHaveBeenLastCalledWith(false);
   });
 
   it('reset() clears conversation history so next send starts fresh', async () => {
@@ -437,9 +442,9 @@ describe('createTransport', () => {
       ]),
     );
 
-    const panel = fakePanel();
+    const mouse = fakeMouse();
     const overlay = fakeOverlay();
-    const transport = createTransport({ config: baseConfig, panel, overlay });
+    const transport = createTransport({ config: baseConfig, mouse, overlay });
 
     await transport.send('first');
     await transport.send('second');

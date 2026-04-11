@@ -7,8 +7,7 @@
  */
 import { resolveConfig } from './config.js';
 import { createShadowContainer } from './shadow-root.js';
-import { createMouseButton } from './widget/mouse-button.js';
-import { createChatPanel, type ChatPanelHandle } from './widget/chat-panel.js';
+import { createMouse, type MouseHandle } from './widget/mouse.js';
 import {
   createConsentDialog,
   readConsent,
@@ -70,73 +69,51 @@ export function mount(input: Partial<PipConfig>): PipInstance {
 
   const overlay: OverlayHandle = createOverlay();
 
-  // Forward declare so onSend can reference the transport before it exists,
-  // and so onClose can focus the button after hiding the panel (for a11y —
-  // keyboard users need focus to land somewhere meaningful when the dialog
-  // dismisses, not be left orphaned on a hidden textarea).
+  // Forward declare so onSend can reference the transport before it exists.
   let transport: TransportController | null = null;
-  let button: HTMLButtonElement | null = null;
 
-  // Build the UI children in order. Order matters for stacking: button
-  // and panel are peers; consent dialog sits above both as an overlay.
-  const panel: ChatPanelHandle = createChatPanel({
+  const mouse: MouseHandle = createMouse({
     onSend: (text) => {
       if (isPaused) return;
+      // First-send gate: if the user has never answered the consent prompt,
+      // pop it now rather than silently shipping their page state.
+      if (readConsent() === null) {
+        consent.show();
+        return;
+      }
       // Fire-and-forget — transport owns its own error handling and
-      // reflects state through the panel handle.
+      // reflects state through the mouse handle.
       void transport?.send(text);
-    },
-    onClose: () => {
-      panel.hide();
-      // Return focus to the trigger. Skipped only if button hasn't been
-      // constructed yet (unreachable — onClose only fires on user input).
-      button?.focus();
     },
     onTogglePause: (paused) => {
       isPaused = paused;
     },
   });
 
-  transport = createTransport({ config, panel, overlay });
+  transport = createTransport({ config, mouse, overlay });
 
   // Start in paused state if the user has previously declined consent.
-  if (isPaused) panel.setPaused(true);
-
-  button = createMouseButton({
-    onClick: () => {
-      if (panel.isVisible()) {
-        panel.hide();
-        button?.focus();
-        return;
-      }
-      if (readConsent() === null) {
-        consent.show();
-        return;
-      }
-      panel.show();
-    },
-  });
+  if (isPaused) mouse.setPaused(true);
 
   const consent: ConsentDialogHandle = createConsentDialog({
     onAccept: () => {
-      panel.show();
+      mouse.focusInput();
     },
     onDecline: () => {
       isPaused = true;
-      panel.setPaused(true);
-      panel.show();
+      mouse.setPaused(true);
     },
     onClose: () => {
-      // User dismissed without deciding. Don't open the panel; they can try
-      // again by clicking the mouse button. Return focus there so keyboard
-      // users don't lose their place.
-      button?.focus();
+      // User dismissed without deciding. Leave the mouse visible but
+      // don't fire anything — they can try again by focusing the input.
+      mouse.focusInput();
     },
   });
 
+  // Stacking: overlay underneath (dim backdrop + ring), mouse on top,
+  // consent on top of everything so it can gate first use.
   root.appendChild(overlay.element);
-  root.appendChild(button);
-  root.appendChild(panel.element);
+  root.appendChild(mouse.element);
   root.appendChild(consent.element);
 
   const instance: PipInstance = {
@@ -144,15 +121,17 @@ export function mount(input: Partial<PipConfig>): PipInstance {
       if (readConsent() === null) {
         consent.show();
       } else {
-        panel.show();
+        mouse.focusInput();
       }
     },
     close: () => {
-      panel.hide();
+      // "Close" maps to dismissing any active overlay/bubble — the mouse
+      // itself never hides in the new UX.
+      overlay.hide();
     },
     setPaused: (paused) => {
       isPaused = paused;
-      panel.setPaused(paused);
+      mouse.setPaused(paused);
       if (paused) {
         // Reflect kill-switch intent in consent so reloads remember it.
         writeConsent('denied');
@@ -163,6 +142,7 @@ export function mount(input: Partial<PipConfig>): PipInstance {
       transport?.abort();
       transport?.reset();
       overlay.destroy();
+      mouse.destroy();
       host.remove();
       if (activeInstance === instance) {
         activeInstance = null;
