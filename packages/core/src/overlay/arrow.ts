@@ -28,6 +28,16 @@ export interface HighlightArgs {
   caption: string;
 }
 
+export interface RenderHighlightOptions {
+  /**
+   * Whether to render the caption bubble and its connector line. Defaults
+   * to `true` for backwards compatibility. Callers that own their own
+   * caption surface (e.g. the mouse widget's speech bubble) pass `false`
+   * to get backdrop + ring only.
+   */
+  renderCaption?: boolean;
+}
+
 const CAPTION_WIDTH = 240;
 const CAPTION_PADDING = 10;
 const GAP = 12; // gap between target rect and caption
@@ -39,7 +49,12 @@ type CaptionSide = 'top' | 'bottom' | 'left' | 'right';
  * should be position:fixed full-viewport; this function replaces its
  * contents.
  */
-export function renderHighlight(container: HTMLElement, args: HighlightArgs): void {
+export function renderHighlight(
+  container: HTMLElement,
+  args: HighlightArgs,
+  options: RenderHighlightOptions = {},
+): void {
+  const renderCaption = options.renderCaption ?? true;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
@@ -50,6 +65,8 @@ export function renderHighlight(container: HTMLElement, args: HighlightArgs): vo
   const th = Math.max(8, Math.min(args.height, vh - ty));
 
   // Decide which side of the target has the most room for the caption.
+  // Computed eagerly either way — it's cheap — but only read when we
+  // actually render the caption.
   const side = pickCaptionSide({ x: tx, y: ty, width: tw, height: th, vw, vh });
   const captionPos = layoutCaption({ x: tx, y: ty, width: tw, height: th, vw, vh, side });
 
@@ -96,29 +113,33 @@ export function renderHighlight(container: HTMLElement, args: HighlightArgs): vo
   ring.setAttribute('class', 'pip-overlay-ring');
   svg.appendChild(ring);
 
-  // Connector line from the caption anchor to the target edge.
-  const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-  connector.setAttribute('x1', String(captionPos.connectorFrom.x));
-  connector.setAttribute('y1', String(captionPos.connectorFrom.y));
-  connector.setAttribute('x2', String(captionPos.connectorTo.x));
-  connector.setAttribute('y2', String(captionPos.connectorTo.y));
-  connector.setAttribute('stroke', '#818cf8');
-  connector.setAttribute('stroke-width', '2');
-  connector.setAttribute('stroke-linecap', 'round');
-  svg.appendChild(connector);
+  if (renderCaption) {
+    // Connector line from the caption anchor to the target edge.
+    const connector = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    connector.setAttribute('x1', String(captionPos.connectorFrom.x));
+    connector.setAttribute('y1', String(captionPos.connectorFrom.y));
+    connector.setAttribute('x2', String(captionPos.connectorTo.x));
+    connector.setAttribute('y2', String(captionPos.connectorTo.y));
+    connector.setAttribute('stroke', '#818cf8');
+    connector.setAttribute('stroke-width', '2');
+    connector.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(connector);
+  }
 
   container.appendChild(svg);
 
-  // Caption lives as an HTML element (not inside the SVG) so text
-  // wrapping, font loading, and accessibility work as expected.
-  const caption = document.createElement('div');
-  caption.className = 'pip-overlay-caption';
-  caption.setAttribute('role', 'status');
-  caption.style.left = `${captionPos.x}px`;
-  caption.style.top = `${captionPos.y}px`;
-  caption.style.width = `${CAPTION_WIDTH}px`;
-  caption.textContent = args.caption;
-  container.appendChild(caption);
+  if (renderCaption) {
+    // Caption lives as an HTML element (not inside the SVG) so text
+    // wrapping, font loading, and accessibility work as expected.
+    const caption = document.createElement('div');
+    caption.className = 'pip-overlay-caption';
+    caption.setAttribute('role', 'status');
+    caption.style.left = `${captionPos.x}px`;
+    caption.style.top = `${captionPos.y}px`;
+    caption.style.width = `${CAPTION_WIDTH}px`;
+    caption.textContent = args.caption;
+    container.appendChild(caption);
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {

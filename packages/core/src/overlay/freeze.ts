@@ -19,11 +19,15 @@
  * pull the overlay rather than point at the wrong thing.
  */
 
-import { renderHighlight, type HighlightArgs } from './arrow.js';
+import {
+  renderHighlight,
+  type HighlightArgs,
+  type RenderHighlightOptions,
+} from './arrow.js';
 
 export interface OverlayHandle {
   element: HTMLElement;
-  show(args: HighlightArgs): void;
+  show(args: HighlightArgs, options?: RenderHighlightOptions): void;
   hide(): void;
   isVisible(): boolean;
   destroy(): void;
@@ -36,8 +40,8 @@ export function createOverlay(): OverlayHandle {
 
   let visible = false;
 
-  function show(args: HighlightArgs): void {
-    renderHighlight(host, args);
+  function show(args: HighlightArgs, options?: RenderHighlightOptions): void {
+    renderHighlight(host, args, options);
     host.style.display = 'block';
     if (!visible) {
       visible = true;
