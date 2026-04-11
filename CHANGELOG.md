@@ -6,15 +6,31 @@ All notable changes to pip are documented here. Format based loosely on [Keep a 
 
 Everything on `main` so far — nothing has been published to npm yet.
 
+### Changed
+- **UX reshape — mouse-first.** The original customer-support chat panel
+  is gone. The widget now renders as a single moving mouse cursor with
+  an always-visible "ask pip" input pill next to it in the idle corner,
+  and a speech bubble that hangs off the cursor for streaming answers.
+  When the model calls the `highlight` tool the cursor animates across
+  the viewport to the target center, the existing dim backdrop + SVG
+  ring fires around the target, and the answer streams into the speech
+  bubble at the new position. No message history, no close button, no
+  chat chrome. `prefers-reduced-motion` skips the walk animation and
+  the idle wiggle. Transport protocol is unchanged — the stream, the
+  `highlight` tool schema, and the server adapter are untouched.
+
 ### Added
-- `@pip-help/core` — vanilla-TS widget with Shadow DOM isolation, mouse button, chat panel, consent dialog, pointing overlay, client-side redaction, and streaming transport. Ships as IIFE + ESM + CJS. ~14 KB gzipped.
+- `@pip-help/core` — vanilla-TS widget with Shadow DOM isolation, the
+  mouse cursor primitive (animated, idle wiggle, paused grayscale),
+  consent dialog, pointing overlay, client-side redaction, and
+  streaming transport. Ships as IIFE + ESM + CJS. ~15 KB gzipped.
 - `@pip-help/server` — backend adapter wrapping the Vercel AI SDK v6 `ToolLoopAgent`. `createPipHandler()` returns a `(Request) => Promise<Response>` function compatible with Next.js App Router and any fetch-based runtime. Ships with a `highlight` tool, `markdownFileContext` helper, and an `onError` passthrough for custom error handling.
 - `apps/demo` — Next.js 16 App Router demo with a fake project-management dashboard, pip auto-mounted, and an `/api/pip` route wired through the server adapter.
 - Full design doc at [`docs/design/2026-04-07-v1-design.md`](docs/design/2026-04-07-v1-design.md).
 - End-user docs: [`docs/getting-started.md`](docs/getting-started.md), [`docs/api/client-config.md`](docs/api/client-config.md), [`docs/api/server-config.md`](docs/api/server-config.md).
 - Package READMEs, demo README, CONTRIBUTING, SECURITY, issue templates.
 - GitHub Actions CI: typecheck + test + build + 35 KB gzipped bundle gate.
-- Vitest unit test suite: **160 tests** in core, **15** in server, **175 total**.
+- Vitest unit test suite: **156 tests** in core, **15** in server, **171 total**.
 
 ### Security
 - Client-side redaction pipeline with a **fail-closed** invariant: if redaction cannot complete for any reason (canvas context creation fails, toDataURL throws on a tainted canvas), the transport throws a `RedactionError` instead of sending the unredacted screenshot. This is enforced by unit tests that mock the failure paths. Always-on redaction selectors: `input[type="password"]`, `input[autocomplete*="cc-"]`, `[data-pip="redact"]`.

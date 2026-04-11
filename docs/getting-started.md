@@ -1,6 +1,6 @@
 # Getting started with pip
 
-This guide walks through adding pip to your site end-to-end in about five minutes. You'll end up with a floating mouse in the corner of your page that answers questions about your product with a visual arrow pointing at whatever the user should click next.
+This guide walks through adding pip to your site end-to-end in about five minutes. You'll end up with a little mouse cursor living in the corner of your page. Users type a question into the "ask pip" pill next to it, and the mouse walks across the page to whatever they should click next, with a speech bubble explaining as it goes.
 
 ## What you need
 
@@ -139,18 +139,17 @@ Then render `<PipMount />` once in your root layout. Double-mounts are a no-op, 
 
 ## Step 6: try it
 
-Start your app. A mouse icon appears in the bottom-right corner. Click it, accept the consent dialog, and ask something like:
+Start your app. A little mouse cursor appears in the bottom-right corner with an "ask pip" pill next to it. Type a question and hit enter:
 
 > How do I create a new project?
 
 You should see:
 
-1. A text answer streaming into a chat bubble
-2. A dimmed backdrop fading over the page
-3. An SVG ring highlighting the button you asked about
-4. A caption bubble next to the ring
+1. The mouse walks from the corner to the button you asked about
+2. A dimmed backdrop fades over the rest of the page with an SVG ring around the target
+3. A speech bubble hangs off the cursor and streams the answer text
 
-Click anywhere (or scroll, or press Escape) to dismiss the highlight.
+Click anywhere (or scroll, or press Escape) to dismiss the highlight. The cursor walks back home and waits for the next question.
 
 ---
 
@@ -165,7 +164,7 @@ Click anywhere (or scroll, or press Escape) to dismiss the highlight.
 
 **"pip server error 500"** — usually the AI Gateway key is missing or invalid. Check `.env.local` and restart the dev server.
 
-**Widget doesn't appear** — open DevTools and look for `[pip]` logs. In debug mode (`debug: true` in your config) the widget logs to `console`. If you see `auto-mount skipped: no config found`, your script tag is missing `data-pip-endpoint`, or `mount()` isn't being called.
+**Cursor doesn't appear** — open DevTools and look for `[pip]` logs. In debug mode (`debug: true` in your config) the widget logs to `console` and short-circuits the fetch. If you see `auto-mount skipped: no config found`, your script tag is missing `data-pip-endpoint`, or `mount()` isn't being called.
 
 **Overlay points at the wrong spot** — the v1 pointing is coordinate-based, so layout shift between screenshot-time and render-time can cause misses. The overlay auto-dismisses on scroll/resize, which is the mitigation. Consistent misses usually mean the model is measuring from the wrong reference frame — file an issue with a screenshot.
 
