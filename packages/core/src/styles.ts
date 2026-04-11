@@ -125,6 +125,46 @@ export const PIP_STYLES = /* css */ `
   }
 }
 
+/* Idle wiggle — a tiny "I'm still here" tilt the cursor does after a
+   few seconds of inactivity. Deliberately subtle so it doesn't draw the
+   eye away from page content. Transform is layered on top of the
+   absolute-centering transform via a wrapper keyframe. */
+.pip-mouse-idle-wiggling {
+  animation: pip-mouse-wiggle 2.6s ease-in-out infinite;
+}
+
+@keyframes pip-mouse-wiggle {
+  0%, 80%, 100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  84% {
+    transform: translate(-50%, -50%) rotate(-6deg);
+  }
+  88% {
+    transform: translate(-50%, -50%) rotate(6deg);
+  }
+  92% {
+    transform: translate(-50%, -50%) rotate(-4deg);
+  }
+  96% {
+    transform: translate(-50%, -50%) rotate(2deg);
+  }
+}
+
+/* Respect reduced-motion — no walking animation, no wiggle. The cursor
+   still reaches its target, it just teleports there. */
+@media (prefers-reduced-motion: reduce) {
+  .pip-mouse-root {
+    transition: none;
+  }
+  .pip-mouse-idle-wiggling {
+    animation: none;
+  }
+  .pip-mouse-sending {
+    animation: none;
+  }
+}
+
 /* Ask pill — always-visible input anchored to the left of the mouse in
    its idle corner. Hidden whenever the mouse walks off to a target. */
 .pip-ask-pill {
@@ -171,8 +211,10 @@ export const PIP_STYLES = /* css */ `
   cursor: not-allowed;
 }
 
-/* Speech bubble — hangs above the mouse by default. Fixed max width so
-   long answers wrap rather than stretching across the viewport. */
+/* Speech bubble — hangs above the mouse by default. Flips below when the
+   cursor is near the top of the viewport (via .pip-bubble-below, toggled
+   from JS based on current mouse y). Fixed max width so long answers
+   wrap rather than stretching across the viewport. */
 .pip-bubble {
   position: absolute;
   bottom: calc(100% + 14px);
@@ -194,7 +236,13 @@ export const PIP_STYLES = /* css */ `
   pointer-events: auto;
 }
 
-/* Tail — small triangle pointing from the bubble toward the mouse. */
+.pip-bubble-below {
+  bottom: auto;
+  top: calc(100% + 14px);
+}
+
+/* Tail — small triangle pointing from the bubble toward the mouse. When
+   the bubble flips below the mouse, the tail flips to the top edge. */
 .pip-bubble::after {
   content: '';
   position: absolute;
@@ -204,6 +252,13 @@ export const PIP_STYLES = /* css */ `
   border: 6px solid transparent;
   border-top-color: var(--pip-bg);
   filter: drop-shadow(0 1px 0 var(--pip-border));
+}
+
+.pip-bubble-below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--pip-bg);
 }
 
 .pip-bubble-streaming::before {

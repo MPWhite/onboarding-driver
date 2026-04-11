@@ -43,6 +43,10 @@ export interface MouseOptions {
 
 const MOUSE_SIZE = 44;
 const HOME_MARGIN = 24;
+/** How long the cursor has to sit still at home before the idle wiggle kicks in. */
+const IDLE_WIGGLE_DELAY_MS = 4000;
+/** Enough vertical room above the mouse to comfortably flip the bubble upward. */
+const BUBBLE_FLIP_THRESHOLD = 120;
 
 export function createMouse(options: MouseOptions): MouseHandle {
   const root = document.createElement('div');
@@ -81,6 +85,7 @@ export function createMouse(options: MouseOptions): MouseHandle {
   let atHome = true;
   let paused = false;
   let sending = false;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
   function computeHome(): { x: number; y: number } {
     return {
@@ -93,10 +98,48 @@ export function createMouse(options: MouseOptions): MouseHandle {
     currentX = x;
     currentY = y;
     root.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    // When the cursor moves to a new spot, the bubble may no longer
+    // have room above it. Re-pick the bubble side for the new y.
+    updateBubbleSide();
+  }
+
+  /**
+   * Decide whether the speech bubble hangs above or below the mouse.
+   * Default is above (looks like a thought balloon rising from the
+   * cursor). When the cursor is near the top of the viewport we flip
+   * below so the bubble doesn't get clipped off-screen.
+   */
+  function updateBubbleSide(): void {
+    if (currentY < BUBBLE_FLIP_THRESHOLD) {
+      bubble.classList.add('pip-bubble-below');
+    } else {
+      bubble.classList.remove('pip-bubble-below');
+    }
+  }
+
+  function scheduleIdleWiggle(): void {
+    clearIdleWiggle();
+    if (!atHome || paused || sending) return;
+    idleTimer = setTimeout(() => {
+      // Only start wiggling if still idle at home — the timer could
+      // have been scheduled before a new turn began.
+      if (atHome && !paused && !sending) {
+        mouse.classList.add('pip-mouse-idle-wiggling');
+      }
+    }, IDLE_WIGGLE_DELAY_MS);
+  }
+
+  function clearIdleWiggle(): void {
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+    mouse.classList.remove('pip-mouse-idle-wiggling');
   }
 
   function moveTo(x: number, y: number): void {
     atHome = false;
+    clearIdleWiggle();
     pill.classList.add('pip-ask-pill-hidden');
     applyPosition(x, y);
   }
@@ -106,6 +149,7 @@ export function createMouse(options: MouseOptions): MouseHandle {
     pill.classList.remove('pip-ask-pill-hidden');
     const home = computeHome();
     applyPosition(home.x, home.y);
+    scheduleIdleWiggle();
   }
 
   function showBubble(): void {
@@ -154,12 +198,22 @@ export function createMouse(options: MouseOptions): MouseHandle {
     mouse.classList.toggle('pip-mouse-paused', paused);
     input.disabled = paused;
     input.placeholder = paused ? 'paused — click mouse to resume' : 'ask pip';
+    if (paused) {
+      clearIdleWiggle();
+    } else {
+      scheduleIdleWiggle();
+    }
   }
 
   function setSending(next: boolean): void {
     sending = next;
     input.disabled = sending || paused;
     mouse.classList.toggle('pip-mouse-sending', sending);
+    if (sending) {
+      clearIdleWiggle();
+    } else {
+      scheduleIdleWiggle();
+    }
   }
 
   function addUserMessage(_text: string): void {
@@ -167,6 +221,16 @@ export function createMouse(options: MouseOptions): MouseHandle {
     // typed the question, they know what they asked. Kept on the handle
     // so the transport controller's contract is stable.
   }
+
+  // Any keystroke in the pill counts as "user is engaged" — bail on
+  // the wiggle so pip doesn't twitch while someone's mid-sentence.
+  input.addEventListener('input', () => {
+    clearIdleWiggle();
+    scheduleIdleWiggle();
+  });
+  input.addEventListener('focus', () => {
+    clearIdleWiggle();
+  });
 
   // Submit handler
   pill.addEventListener('submit', (event) => {
@@ -208,9 +272,11 @@ export function createMouse(options: MouseOptions): MouseHandle {
   }
   window.addEventListener('resize', onResize);
 
-  // Initial position — bottom-right corner.
+  // Initial position — bottom-right corner. Kick off the idle wiggle
+  // so the cursor has personality from first paint.
   const initial = computeHome();
   applyPosition(initial.x, initial.y);
+  scheduleIdleWiggle();
 
   return {
     element: root,
@@ -222,6 +288,7 @@ export function createMouse(options: MouseOptions): MouseHandle {
     moveTo,
     returnHome,
     destroy(): void {
+      clearIdleWiggle();
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('resize', onResize);
       root.remove();
