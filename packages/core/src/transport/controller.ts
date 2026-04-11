@@ -24,7 +24,8 @@
  */
 
 import { capturePage } from '../capture/index.js';
-import type { ChatPanelHandle, AssistantTurnHandle } from '../widget/chat-panel.js';
+import type { ChatPanelHandle } from '../widget/chat-panel.js';
+import type { AssistantTurnHandle } from '../widget/assistant-turn.js';
 import type { OverlayHandle } from '../overlay/index.js';
 import type { PipConfig, PipOutgoingPayload, PipUIMessageLike } from '../types.js';
 import { readUiMessageStream, type UIStreamEvent } from './stream.js';

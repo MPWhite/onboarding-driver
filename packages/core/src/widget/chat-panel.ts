@@ -14,6 +14,9 @@
  * so the transport can drive the UI as stream chunks arrive.
  */
 
+import type { AssistantTurnHandle } from './assistant-turn.js';
+export type { AssistantTurnHandle };
+
 export interface ChatPanelHandle {
   element: HTMLElement;
   show(): void;
@@ -24,19 +27,6 @@ export interface ChatPanelHandle {
   setSending(sending: boolean): void;
   addUserMessage(text: string): void;
   startAssistantTurn(): AssistantTurnHandle;
-}
-
-/**
- * Streaming handle returned by `startAssistantTurn()`. The transport layer
- * writes deltas into it as stream chunks arrive.
- */
-export interface AssistantTurnHandle {
-  /** Append a text delta to the active assistant bubble. */
-  appendText(delta: string): void;
-  /** Mark the turn complete. Locks further writes. */
-  finish(): void;
-  /** Mark the turn as errored; renders a subtle error note. */
-  error(message: string): void;
 }
 
 export interface ChatPanelOptions {

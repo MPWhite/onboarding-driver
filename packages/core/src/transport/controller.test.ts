@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createTransport } from './controller.js';
-import type { ChatPanelHandle, AssistantTurnHandle } from '../widget/chat-panel.js';
+import type { ChatPanelHandle } from '../widget/chat-panel.js';
+import type { AssistantTurnHandle } from '../widget/assistant-turn.js';
 import type { OverlayHandle } from '../overlay/index.js';
 import type { PipConfig } from '../types.js';
 
