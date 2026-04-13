@@ -23,6 +23,9 @@
     "url": "git+https://github.com/MPWhite/onboarding-driver.git",
     "directory": "packages/server"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "publishConfig": {
     "access": "public"
   },
