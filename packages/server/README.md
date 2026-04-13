@@ -1,6 +1,6 @@
 # @pip-help/server
 
-Backend adapter for [pip](https://github.com/MPWhite/onboarding-driver). A thin wrapper around the [Vercel AI SDK v6](https://sdk.vercel.ai) that answers contextual help questions from the [`@pip-help/core`](https://www.npmjs.com/package/@pip-help/core) widget.
+Backend adapter for [pip](https://github.com/MPWhite/onboarding-driver). A thin wrapper around the [Vercel AI SDK v6](https://sdk.vercel.ai) that answers contextual help questions from the [`@pip-help/core`](https://github.com/MPWhite/onboarding-driver/tree/main/packages/core) widget.
 
 ## Install
 

@@ -2,7 +2,7 @@
 
 The pip widget — a vanilla TypeScript chat assistant that mounts into any website via a `<script>` tag or an `import`. Shadow DOM isolated, framework-free, ~14 KB gzipped.
 
-This package is one half of [pip](https://github.com/MPWhite/onboarding-driver). You also need [`@pip-help/server`](https://www.npmjs.com/package/@pip-help/server) (or an equivalent) running behind a `/api/pip` route on your own backend.
+This package is one half of [pip](https://github.com/MPWhite/onboarding-driver). You also need [`@pip-help/server`](https://github.com/MPWhite/onboarding-driver/tree/main/packages/server) (or an equivalent) running behind a `/api/pip` route on your own backend.
 
 ## Install
 
