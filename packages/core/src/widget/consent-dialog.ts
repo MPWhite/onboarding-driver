@@ -137,11 +137,17 @@ export function createConsentDialog(options: ConsentDialogOptions): ConsentDialo
         if (active === declineBtn) {
           event.preventDefault();
           acceptBtn?.focus();
+        } else if (active === acceptBtn) {
+          event.preventDefault();
+          declineBtn?.focus();
         }
       } else {
         if (active === acceptBtn) {
           event.preventDefault();
           declineBtn?.focus();
+        } else if (active === declineBtn) {
+          event.preventDefault();
+          acceptBtn?.focus();
         }
       }
     }
