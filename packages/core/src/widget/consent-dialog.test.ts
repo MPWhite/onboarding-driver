@@ -226,6 +226,58 @@ describe('createConsentDialog', () => {
     expect(document.activeElement).toBe(acceptBtn);
   });
 
+  it('Tab from decline wraps back to accept (focus trap wraps)', () => {
+    const dialog = createConsentDialog({
+      onAccept: vi.fn(),
+      onDecline: vi.fn(),
+      onClose: vi.fn(),
+    });
+    document.body.appendChild(dialog.element);
+    dialog.show();
+
+    const acceptBtn = dialog.element.querySelector<HTMLButtonElement>(
+      '[data-action="accept"]',
+    )!;
+    const declineBtn = dialog.element.querySelector<HTMLButtonElement>(
+      '[data-action="decline"]',
+    )!;
+    const innerDialog = dialog.element.querySelector('.pip-consent-dialog')!;
+
+    // Tab from decline → accept (wraps around)
+    const tabEvent = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true });
+    Object.defineProperty(tabEvent, 'target', { value: declineBtn });
+    innerDialog.dispatchEvent(tabEvent);
+    expect(document.activeElement).toBe(acceptBtn);
+  });
+
+  it('Shift+Tab from accept wraps back to decline (focus trap wraps)', () => {
+    const dialog = createConsentDialog({
+      onAccept: vi.fn(),
+      onDecline: vi.fn(),
+      onClose: vi.fn(),
+    });
+    document.body.appendChild(dialog.element);
+    dialog.show();
+
+    const acceptBtn = dialog.element.querySelector<HTMLButtonElement>(
+      '[data-action="accept"]',
+    )!;
+    const declineBtn = dialog.element.querySelector<HTMLButtonElement>(
+      '[data-action="decline"]',
+    )!;
+    const innerDialog = dialog.element.querySelector('.pip-consent-dialog')!;
+
+    // Shift+Tab from accept → decline (wraps around)
+    const shiftTab = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+    });
+    Object.defineProperty(shiftTab, 'target', { value: acceptBtn });
+    innerDialog.dispatchEvent(shiftTab);
+    expect(document.activeElement).toBe(declineBtn);
+  });
+
   it('dialog has the required a11y attributes', () => {
     const dialog = createConsentDialog({
       onAccept: vi.fn(),
